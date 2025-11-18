@@ -1,0 +1,182 @@
+{% extends "header.html" %}
+
+{% block title %}Card Analytics — Clash Meta{% endblock %}
+
+{% block content %}
+  <!-- Page Header -->
+  <section class="mb-6">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Card Analytics</h1>
+        <p class="text-sm text-slate-300">
+          Explore card win rates, usage, and performance across different trophy ranges.
+        </p>
+      </div>
+
+      <!-- Small page hint -->
+      <div class="mt-2 sm:mt-0 text-xs text-slate-400 text-right">
+        Scatter: each point represents a card (win rate vs. usage).
+      </div>
+    </div>
+  </section>
+
+  <!-- Filters -->
+  <section class="mb-6">
+    <div class="flex flex-col sm:flex-row gap-4 sm:items-end sm:justify-between">
+      <!-- Left: Filters -->
+      <div class="flex flex-col sm:flex-row gap-4">
+        <!-- Trophy Range -->
+        <div class="flex flex-col gap-1 text-sm">
+          <label for="trophy-range" class="text-[11px] uppercase tracking-wide" style="color: var(--text-muted);">
+            Trophy Range
+          </label>
+          <select
+            id="trophy-range"
+            class="bg-transparent border border-slate-600/60 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400"
+          >
+            <option value="all" class="bg-[#1B1126]">All trophies</option>
+            <option value="5000-6000" class="bg-[#1B1126]">5000 – 6000</option>
+            <option value="6000-7000" class="bg-[#1B1126]">6000 – 7000</option>
+            <option value="7000-8000" class="bg-[#1B1126]">7000 – 8000</option>
+            <option value="8000+" class="bg-[#1B1126]">8000+</option>
+          </select>
+        </div>
+
+        <!-- Minimum Games -->
+        <div class="flex flex-col gap-1 text-sm">
+          <label for="min-games" class="text-[11px] uppercase tracking-wide" style="color: var(--text-muted);">
+            Minimum Games
+          </label>
+          <select
+            id="min-games"
+            class="bg-transparent border border-slate-600/60 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-emerald-400"
+          >
+            <option value="50" class="bg-[#1B1126]">≥ 50 games</option>
+            <option value="100" class="bg-[#1B1126]">≥ 100 games</option>
+            <option value="250" class="bg-[#1B1126]">≥ 250 games</option>
+            <option value="500" class="bg-[#1B1126]">≥ 500 games</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Right: Placeholder for future toggle/filter -->
+      <div class="text-xs text-slate-400">
+        v1: filters are static. Later, they’ll drive the API.
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Layout: Scatter + Side Card -->
+  <section class="mb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <!-- Scatter Chart -->
+      <div class="lg:col-span-2 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold tracking-tight">
+            Win Rate vs. Usage
+          </h2>
+          <p class="text-[11px] text-slate-400">
+            Each point is a card; high-right = strong & popular.
+          </p>
+        </div>
+
+        <div id="cards-scatter" class="chart-box h-80 w-full flex items-center justify-center text-xs text-slate-400">
+          Scatter chart loading…
+        </div>
+      </div>
+
+      <!-- Side Card: Top Cards by Win Rate -->
+      <aside class="card flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold tracking-tight">
+            Top Cards by Win Rate
+          </h2>
+          <span class="text-[11px]" style="color: var(--text-muted);">
+            Filtered by settings
+          </span>
+        </div>
+
+        <!-- Placeholder list; later filled from API -->
+        <ul class="space-y-2 text-sm">
+          <li class="flex items-center justify-between text-slate-200">
+            <span>–</span>
+            <span class="text-xs text-slate-400">—%</span>
+          </li>
+          <li class="flex items-center justify-between text-slate-200">
+            <span>–</span>
+            <span class="text-xs text-slate-400">—%</span>
+          </li>
+          <li class="flex items-center justify-between text-slate-200">
+            <span>–</span>
+            <span class="text-xs text-slate-400">—%</span>
+          </li>
+          <li class="flex items-center justify-between text-slate-200">
+            <span>–</span>
+            <span class="text-xs text-slate-400">—%</span>
+          </li>
+          <li class="flex items-center justify-between text-slate-200">
+            <span>–</span>
+            <span class="text-xs text-slate-400">—%</span>
+          </li>
+        </ul>
+
+        <p class="text-[11px] text-slate-400 mt-2">
+          Later, this panel will show the top few cards after applying trophy and minimum games filters.
+        </p>
+      </aside>
+    </div>
+  </section>
+
+  <!-- Full-width Table -->
+  <section>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold tracking-tight">
+        Card Detail Table
+      </h2>
+      <p class="text-[11px] text-slate-400">
+        Full listing of cards, usage, and performance metrics.
+      </p>
+    </div>
+
+    <div class="card p-0 overflow-hidden">
+      <!-- Table: will be populated later by JS -->
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-xs uppercase tracking-wide" style="color: var(--text-muted);">
+            <tr class="border-b border-slate-700/60">
+              <th class="text-left px-4 py-2">Card</th>
+              <th class="text-right px-4 py-2">Win Rate</th>
+              <th class="text-right px-4 py-2">Usage</th>
+              <th class="text-right px-4 py-2">Games</th>
+              <th class="text-right px-4 py-2">Avg. Elixir</th>
+            </tr>
+          </thead>
+          <tbody id="cards-table" class="divide-y divide-slate-800/70">
+            <!-- Placeholder rows -->
+            <tr>
+              <td class="px-4 py-3 text-slate-200">—</td>
+              <td class="px-4 py-3 text-right text-slate-300">—%</td>
+              <td class="px-4 py-3 text-right text-slate-300">—%</td>
+              <td class="px-4 py-3 text-right text-slate-300">—</td>
+              <td class="px-4 py-3 text-right text-slate-300">—</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-slate-200">—</td>
+              <td class="px-4 py-3 text-right text-slate-300">—%</td>
+              <td class="px-4 py-3 text-right text-slate-300">—%</td>
+              <td class="px-4 py-3 text-right text-slate-300">—</td>
+              <td class="px-4 py-3 text-right text-slate-300">—</td>
+            </tr>
+            <tr>
+              <td class="px-4 py-3 text-slate-200">—</td>
+              <td class="px-4 py-3 text-right text-slate-300">—%</td>
+              <td class="px-4 py-3 text-right text-slate-300">—%</td>
+              <td class="px-4 py-3 text-right text-slate-300">—</td>
+              <td class="px-4 py-3 text-right text-slate-300">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+{% endblock %}

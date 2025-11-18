@@ -1,0 +1,32 @@
+:root {
+  --bg-purple: #1B1126;
+  --panel-purple: #271634;
+  --panel-purple-dark: #2F1D41;
+
+  --emerald-300: #6ee7b7;
+  --emerald-400: #34d399;
+  --emerald-500: #10b981;
+
+  --text-white: #f8fafc;
+  --text-muted: #c7d2fe;
+}
+
+/* Optional reusable classes */
+.card {
+  background-color: var(--panel-purple);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.stat-box {
+  background-color: var(--panel-purple-dark);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.chart-box {
+  background-color: var(--panel-purple-dark);
+  padding: 1rem;
+  border-radius: 0.75rem;
+}

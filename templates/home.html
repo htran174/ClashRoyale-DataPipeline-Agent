@@ -1,27 +1,82 @@
 {% extends "header.html" %}
 
+{% block title %}Overview — Clash Meta{% endblock %}
+
 {% block content %}
-<h2 class="title-lg mb-2">Overview</h2>
-<p class="subtitle mb-6">
-  Data updates every time you run the ETL script.
-</p>
+  <!-- Page Header -->
+  <section class="mb-6">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Overview</h1>
+        <p class="text-sm text-slate-300">
+          High-level snapshot of Clash Royale matches, decks, and data freshness.
+        </p>
+      </div>
 
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-  <div class="stat-box">
-    <div class="stat-label">Matches</div>
-    <div class="stat-value">{{ stats.matches }}</div>
-  </div>
+      <!-- (Optional small badge/info) -->
+      <div class="mt-2 sm:mt-0 text-xs text-slate-400">
+        Data source: Clash Royale API · Stored in SQLite
+      </div>
+    </div>
+  </section>
 
-  <div class="stat-box">
-    <div class="stat-label">Decks</div>
-    <div class="stat-value">{{ stats.decks }}</div>
-  </div>
+  <!-- Stat Cards -->
+  <section class="mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <!-- Matches -->
+      <div class="stat-box flex flex-col gap-1">
+        <div class="text-[11px] uppercase tracking-wide" style="color: var(--text-muted);">
+          Matches
+        </div>
+        <div class="text-2xl font-semibold">
+          —
+        </div>
+        <div class="text-[11px] text-slate-400">
+          Total battles in current dataset
+        </div>
+      </div>
 
-  <div class="stat-box">
-    <div class="stat-label">Last Updated</div>
-    <div class="text-sm">{{ stats.last_updated }}</div>
-  </div>
-</div>
+      <!-- Decks -->
+      <div class="stat-box flex flex-col gap-1">
+        <div class="text-[11px] uppercase tracking-wide" style="color: var(--text-muted);">
+          Decks
+        </div>
+        <div class="text-2xl font-semibold">
+          —
+        </div>
+        <div class="text-[11px] text-slate-400">
+          Unique decks observed across matches
+        </div>
+      </div>
 
-<div class="chart-box h-[380px]" id="dummy-chart"></div>
+      <!-- Last Updated -->
+      <div class="stat-box flex flex-col gap-1">
+        <div class="text-[11px] uppercase tracking-wide" style="color: var(--text-muted);">
+          Last Updated
+        </div>
+        <div class="text-2xl font-semibold">
+          —
+        </div>
+        <div class="text-[11px] text-slate-400">
+          Timestamp of latest ETL run
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Main Chart Area -->
+  <section>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold tracking-tight">
+        Performance Overview
+      </h2>
+      <p class="text-[11px] text-slate-400">
+        In v1 this is a dummy chart. Later it will show win rates / usage trends.
+      </p>
+    </div>
+
+    <div id="overview-chart" class="chart-box h-72 w-full flex items-center justify-center text-xs text-slate-400">
+      Chart loading…
+    </div>
+  </section>
 {% endblock %}
