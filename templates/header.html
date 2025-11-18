@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+    
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tailwind.css') }}">
+
+<head>
+  <meta charset="utf-8" />
+  <title>Clash Royale Meta Analytics</title>
+
+  <!-- Tailwind via CDN for now -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Plotly CDN -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <!-- Basic meta and styling -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+  <!-- Header -->
+  <header class="border-b border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <h1 class="text-lg font-semibold tracking-wide">
+        Clash Royale Meta <span class="text-emerald-400">Analytics</span>
+      </h1>
+      <nav class="space-x-4 text-sm">
+        <a href="/" class="hover:text-emerald-400">Overview</a>
+        <!-- we'll add Cards / Archetypes pages later -->
+        <!-- <a href="/cards" class="hover:text-emerald-400">Cards</a> -->
+        <!-- <a href="/archetypes" class="hover:text-emerald-400">Archetypes</a> -->
+      </nav>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="flex-1">
+    <div class="max-w-6xl mx-auto px-4 py-6">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800">
+    <div class="max-w-6xl mx-auto px-4 py-3 text-xs text-slate-400 flex justify-between">
+      <span>Personal project — Clash Royale API + SQLite + Flask</span>
+      <span>v0.1 (data pipeline coming soon)</span>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
