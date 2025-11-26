@@ -1,5 +1,21 @@
-venv/
-.env
-*.env
+# --- Python ---
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.db
+
+# --- Virtual environments ---
+venv/
+.env
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- OS / Editor Files ---
+.DS_Store
+.vscode/
+
+# --- Project directories ---
+plots/
+samples/*.json
