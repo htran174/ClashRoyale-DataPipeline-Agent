@@ -44,22 +44,19 @@ def cr_get(path: str, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]
 
     return response.json()
 
+LEADERBOARD_GLOBAL_ID = 170000005  # from CR dev docs
 
-def get_global_top_players(limit: int = 200, after: Optional[str] = None) -> Dict[str, Any]:
+
+def get_global_top_players(limit: int = 300) -> Dict[str, Any]:
     """
-    Fetch global top players rankings.
+    Fetch players from the global ladder leaderboard.
 
-    This wraps /v1/locations/global/rankings/players.
+    Wraps:
+        GET /leaderboard/{leaderboardId}?limit=...
 
-    Args:
-        limit: Number of players to fetch (max 200 per API docs).
-        after: Optional cursor for pagination.
-
-    Returns:
-        JSON dict from the API.
+    leaderboardId 170000005 = global trophy leaderboard (per CR docs).
     """
     params: Dict[str, Any] = {"limit": limit}
-    if after:
-        params["after"] = after
+    path = f"/leaderboard/{LEADERBOARD_GLOBAL_ID}"
+    return cr_get(path, params=params)
 
-    return cr_get("/locations/global/rankings/players", params=params)

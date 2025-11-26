@@ -1,32 +1,22 @@
-from typing import List, Dict, Any, Optional
-
+from typing import List, Dict, Any
 from .cr_client import get_global_top_players
 
 
 def fetch_top_300_players() -> List[Dict[str, Any]]:
     """
-    Fetch approximately the top 300 global players.
-
-    Uses:
-      - first call:  limit=200
-      - second call: limit=100 with 'after' cursor from the first page
-
-    Returns:
-        List of player dicts (truncated to 300 if API returns more).
+    Returns a list of the top ~300 global ladder players
+    from the leaderboard endpoint.
     """
-    # First page: top ~200
-    first_page = get_global_top_players(limit=200)
-    items: List[Dict[str, Any]] = first_page.get("items", [])
+    data = get_global_top_players(limit=300)
 
-    # Try to get the 'after' cursor for pagination
-    paging = first_page.get("paging", {})
-    cursors: Dict[str, Optional[str]] = paging.get("cursors", {}) if paging else {}
-    after_cursor: Optional[str] = cursors.get("after")
+    if not data:
+        print("ERROR: get_global_top_players() returned empty response.")
+        return []
 
-    # Second page: next ~100 players if cursor exists
-    if after_cursor:
-        second_page = get_global_top_players(limit=100, after=after_cursor)
-        items.extend(second_page.get("items", []))
+    items = data.get("items", [])
+    if not items:
+        print("WARNING: No players found in 'items'. Full response:")
+        print(data)
+        return []
 
-    # Ensure we only keep the first 300 entries
-    return items[:300]
+    return items
