@@ -12,14 +12,31 @@ from src.api.players import fetch_top_players
 from src.api.battles import get_player_battlelog
 from src.analytics.battle_filters import filter_and_normalize_ranked_1v1
 from src.analytics.meta_analytics import compute_meta_analytics
+from src.analytics.meta_standardize import build_standardized_meta_table
+from src.analytics.plots import (
+    plot_deck_type_pie,
+    plot_deck_type_bar,
+    PLOTS_DIR,
+    _ensure_plots_dir,
+)
+from src.analytics.meta_plots import (
+    attach_meta_plots_to_analytics,          # if you still use this
+    plot_meta_matchups_by_deck,              # 👈 NEW
+)
+
+from src.analytics.meta_llm_tables import (
+    build_meta_deck_summary,
+    build_meta_matchup_summary,
+)
+
 
 
 # ---------------------------------------------------------------------------
 # Constants for Phase 0 stopping condition
 # ---------------------------------------------------------------------------
 
-MIN_TOTAL_BATTLES = 500
-MIN_GAMES_PER_TYPE = 50
+MIN_TOTAL_BATTLES = 2000
+MIN_GAMES_PER_TYPE = 200
 
 # Internal names are lowercased for robustness
 REQUIRED_DECK_TYPES_LOWER = [
@@ -62,6 +79,114 @@ class MetaState(TypedDict, total=False):
     # Logging
     notes: List[str]
 
+    # Standardized participant-level meta table (built after loop)
+    meta_table: List[Dict[str, Any]]
+
+    # Compact, LLM-friendly summary tables
+    meta_llm_tables: Dict[str, Any]
+
+
+
+import os
+import matplotlib.pyplot as plt
+
+# ---------------------------------------------------------------------------
+# Helper
+# ---------------------------------------------------------------------------
+
+
+def _plot_meta_matchups_by_deck(
+    matchup_summary: List[Dict[str, Any]],
+    filename_prefix: str = "meta_matchups",
+) -> Dict[str, str]:
+    """
+    For each deck type (attacker_type), create a bar chart of win rate vs
+    every other deck type (defender_type).
+
+    Changes from previous version:
+      - Mirror matchups (attacker_type == defender_type) are NOT shown.
+      - Bar labels show WR% (not #games).
+      - Title includes total games for that deck type.
+    """
+    if not matchup_summary:
+        return {}
+
+    _ensure_plots_dir()
+
+    # Group rows by attacker_type
+    by_attacker: Dict[str, List[Dict[str, Any]]] = {}
+    for row in matchup_summary:
+        attacker = row.get("attacker_type")
+        defender = row.get("defender_type")
+        if not attacker or not defender:
+            continue
+        by_attacker.setdefault(attacker, []).append(row)
+
+    plot_paths: Dict[str, str] = {}
+
+    for attacker_type, rows in by_attacker.items():
+        if not rows:
+            continue
+
+        # Total games for this archetype (including mirror + non-mirror)
+        total_games_for_deck = sum(int(r.get("games", 0)) for r in rows)
+
+        # Exclude mirror from what we actually *plot*
+        rows_non_mirror = [
+            r for r in rows
+            if r.get("attacker_type") != r.get("defender_type")
+        ]
+
+        if not rows_non_mirror:
+            # If there are only mirrors, just skip plotting for this deck
+            continue
+
+        # Sort by win_rate descending so strongest matchups appear first
+        rows_non_mirror = sorted(
+            rows_non_mirror,
+            key=lambda r: float(r.get("win_rate", 0.0)),
+            reverse=True,
+        )
+
+        defenders = [r["defender_type"] for r in rows_non_mirror]
+        win_rates_pct = [float(r.get("win_rate", 0.0)) * 100.0 for r in rows_non_mirror]
+
+        x = list(range(len(defenders)))
+
+        plt.figure(figsize=(8, 5))
+        plt.bar(x, win_rates_pct)
+        plt.xticks(x, defenders, rotation=30, ha="right")
+        plt.ylabel("Win rate (%)")
+        plt.xlabel("Opponent deck type")
+
+        plt.title(
+            f"{attacker_type} vs other deck types "
+            f"(meta win rates, {total_games_for_deck} games)"
+        )
+
+        # Label each bar with WR%
+        for xi, rate in enumerate(win_rates_pct):
+            plt.text(
+                xi,
+                rate + 1.0,
+                f"{rate:.1f}%",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+            )
+
+        plt.tight_layout()
+
+        safe_name = attacker_type.lower().replace(" ", "_")
+        filename = f"{filename_prefix}_{safe_name}.png"
+        path = os.path.join(PLOTS_DIR, filename)
+        plt.savefig(path, dpi=150)
+        plt.close()
+
+        plot_paths[attacker_type] = path
+
+    return plot_paths
+
 
 # ---------------------------------------------------------------------------
 # Node implementations
@@ -75,7 +200,7 @@ def fetch_top_players_node(state: MetaState) -> Dict[str, Any]:
     notes = list(state.get("notes", []))
 
     # You modified this function to accept an optional limit
-    top_players = fetch_top_players(limit=300)
+    top_players = fetch_top_players(limit=1000)
     notes.append(f"Fetched {len(top_players)} top players from API")
 
     return {
@@ -86,6 +211,8 @@ def fetch_top_players_node(state: MetaState) -> Dict[str, Any]:
         "meta_raw_battles": [],
         "normalized_battles": [],
         "meta_analytics": {},
+        "meta_table": [],          
+        "meta_llm_tables": {},   
         "is_balanced": False,
         "loop_count": 0,
         "stop_decision": "",
@@ -93,7 +220,7 @@ def fetch_top_players_node(state: MetaState) -> Dict[str, Any]:
     }
 
 
-def sample_initial_50_node(state: MetaState) -> Dict[str, Any]:
+def sample_initial_node(state: MetaState) -> Dict[str, Any]:
     """
     Randomly sample 50 players from top_players to form the initial meta cohort.
     """
@@ -101,11 +228,11 @@ def sample_initial_50_node(state: MetaState) -> Dict[str, Any]:
     notes = list(state.get("notes", []))
 
     if not top_players:
-        notes.append("sample_initial_50: WARNING – top_players is empty.")
+        notes.append("sample_initial: WARNING – top_players is empty.")
         return {"selected_players": [], "notes": notes}
 
     all_indices = list(range(len(top_players)))
-    sample_size = min(50, len(all_indices))
+    sample_size = min(250, len(all_indices))
     sampled_indices = random.sample(all_indices, sample_size)
 
     selected_players = [top_players[i] for i in sampled_indices]
@@ -113,7 +240,7 @@ def sample_initial_50_node(state: MetaState) -> Dict[str, Any]:
     used_indices.update(sampled_indices)
 
     notes.append(
-        f"sample_initial_50: sampled {len(selected_players)} players "
+        f"sample_initial: sampled {len(selected_players)} players "
         f"out of {len(top_players)}."
     )
 
@@ -258,9 +385,9 @@ def check_enough_battles_node(state: MetaState) -> Dict[str, Any]:
 
     1. Total games >= MIN_TOTAL_BATTLES (500)
     2. For each required deck type (siege, bait, cycle, bridge spam, beatdown),
-       opponent deck-type sample size >= MIN_GAMES_PER_TYPE (70).
+       the **combined** sample size (my + opp decks) >= MIN_GAMES_PER_TYPE.
 
-    Hybrid is allowed to have fewer than 70 games.
+    Hybrid is allowed to have fewer than MIN_GAMES_PER_TYPE games.
 
     This node sets:
         - is_balanced: bool
@@ -269,12 +396,26 @@ def check_enough_battles_node(state: MetaState) -> Dict[str, Any]:
     notes = list(state.get("notes", []))
     meta = state.get("meta_analytics", {}) or {}
 
-    games_total = int(meta.get("games_total", len(state.get("meta_raw_battles", []))))
-    deck_counts_raw = meta.get("deck_type_counts_opp", {})
+    # Use summary.games_played if present, otherwise fall back to raw battle length
+    summary = meta.get("summary", {}) or {}
+    games_total = int(
+        summary.get("games_played", len(state.get("meta_raw_battles", [])))
+    )
+
+    # --- NEW: combine my + opp deck-type counts ---
+    my_counts_raw = meta.get("deck_type_counts_my", {}) or {}
+    opp_counts_raw = meta.get("deck_type_counts_opp", {}) or {}
+
+    combined_counts_raw: Dict[str, int] = {}
+    all_keys = set(my_counts_raw.keys()) | set(opp_counts_raw.keys())
+    for k in all_keys:
+        combined_counts_raw[k] = int(my_counts_raw.get(k, 0)) + int(
+            opp_counts_raw.get(k, 0)
+        )
 
     # Normalize deck-type keys to lowercase for robustness
     deck_counts_lower: Dict[str, int] = {
-        str(k).lower(): int(v) for k, v in deck_counts_raw.items()
+        str(k).lower(): int(v) for k, v in combined_counts_raw.items()
     }
 
     # Check required deck types
@@ -297,7 +438,8 @@ def check_enough_battles_node(state: MetaState) -> Dict[str, Any]:
         decision = "enough"
         notes.append(
             "check_enough_battles: enough data. "
-            f"games_total={games_total}, all required deck types >= {MIN_GAMES_PER_TYPE}."
+            f"games_total={games_total}, all required deck types >= {MIN_GAMES_PER_TYPE} "
+            "(combined my+opp)."
         )
         is_balanced = True
     else:
@@ -322,6 +464,227 @@ def check_enough_battles_node(state: MetaState) -> Dict[str, Any]:
     return {
         "is_balanced": is_balanced,
         "stop_decision": decision,
+        "notes": notes,
+    }
+
+def standardize_meta_table_node(state: MetaState) -> Dict[str, Any]:
+    """
+    After we've finished looping, build a unified participant-level meta table
+    from all normalized meta battles.
+
+    This does NOT run inside the loop; it only runs once when we decide the
+    dataset is "enough" or when we stop due to loop/players limits.
+    """
+    notes = list(state.get("notes", []))
+    battles = state.get("meta_raw_battles", []) or []
+
+    if not battles:
+        notes.append("standardize_meta_table: no battles in state, skipping.")
+        return {"notes": notes}
+
+    meta_table = build_standardized_meta_table(battles)
+    notes.append(
+        f"standardize_meta_table: built meta_table with {len(meta_table)} rows "
+        f"from {len(battles)} battles."
+    )
+
+    return {
+        "meta_table": meta_table,
+        "notes": notes,
+    }
+
+def _aggregate_meta_deck_type_stats(
+    meta_table: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    Aggregate participant-level meta table into deck-type stats compatible with
+    plot_deck_type_pie / plot_deck_type_bar.
+
+    Output list entries look like:
+        {
+          "type": "Beatdown",
+          "games": 42,
+          "wins": 23,
+          "losses": 17,
+          "draws": 2,
+          "win_rate": 23/42,
+        }
+    """
+    stats: Dict[str, Dict[str, Any]] = {}
+
+    for row in meta_table:
+        deck_type = row.get("deck_type", "Unknown")
+        result = row.get("result")
+
+        rec = stats.setdefault(
+            deck_type,
+            {
+                "type": deck_type,
+                "games": 0,
+                "wins": 0,
+                "losses": 0,
+                "draws": 0,
+                "win_rate": 0.0,
+            },
+        )
+
+        rec["games"] += 1
+        if result == "win":
+            rec["wins"] += 1
+        elif result == "loss":
+            rec["losses"] += 1
+        elif result == "draw":
+            rec["draws"] += 1
+
+    for rec in stats.values():
+        games = rec["games"] or 0
+        rec["win_rate"] = rec["wins"] / games if games > 0 else 0.0
+
+    # Sort by games descending so plots are stable and readable
+    return sorted(stats.values(), key=lambda r: r["games"], reverse=True)
+
+def build_meta_llm_tables_node(state: MetaState) -> Dict[str, Any]:
+    """
+    Build compact, LLM-friendly meta tables from the finalized meta dataset.
+
+    Inputs:
+      - state["meta_table"]: participant-level rows built after the loop
+      - state["meta_analytics"]["deck_type_matchups"]: full matchup matrix
+
+    Outputs:
+      - state["meta_llm_tables"] = {
+            "meta_deck_summary": [...],
+            "meta_matchup_summary": [...],
+        }
+    """
+    notes = list(state.get("notes", []))
+    meta_table = state.get("meta_table", []) or []
+    analytics = state.get("meta_analytics", {}) or {}
+    matchups = analytics.get("deck_type_matchups", {}) or {}
+
+    if not meta_table:
+        notes.append(
+            "build_meta_llm_tables: no meta_table available, skipping LLM tables."
+        )
+        return {"notes": notes}
+
+    # Use the same MIN_GAMES_PER_TYPE as your loop for sample_ok
+    deck_summary = build_meta_deck_summary(
+        meta_table,
+        min_games_per_type=MIN_GAMES_PER_TYPE,
+    )
+    matchup_summary = build_meta_matchup_summary(
+        matchups,
+        min_matchup_games=30,  # you can tune this if you want stricter matchup samples
+    )
+
+    llm_tables: Dict[str, Any] = {
+        "meta_deck_summary": deck_summary,
+        "meta_matchup_summary": matchup_summary,
+    }
+
+    notes.append(
+        "build_meta_llm_tables: built "
+        f"{len(deck_summary)} deck-type rows and "
+        f"{len(matchup_summary)} matchup rows."
+    )
+
+    return {
+        "meta_llm_tables": llm_tables,
+        "notes": notes,
+    }
+
+
+def generate_meta_plots_node(state: MetaState) -> Dict[str, Any]:
+    """
+    Generate ALL meta plots AFTER the loop has finished.
+
+    Uses:
+      - state["meta_llm_tables"]["meta_deck_summary"]
+      - state["meta_llm_tables"]["meta_matchup_summary"]
+
+    Writes:
+      - meta_analytics["plots"] = {
+            "meta_deck_types_pie": ...,
+            "meta_deck_types_winrate_bar": ...,
+            "meta_matchups_by_deck": {
+                "<deck_type>": "<path>",
+                ...
+            },
+        }
+    """
+    notes = list(state.get("notes", []))
+
+    analytics = dict(state.get("meta_analytics", {}) or {})
+    plots = dict(analytics.get("plots", {}) or {})
+
+    llm_tables = state.get("meta_llm_tables", {}) or {}
+    deck_summary = llm_tables.get("meta_deck_summary", []) or []
+    matchup_summary = llm_tables.get("meta_matchup_summary", []) or []
+
+    # --- 1) Overall meta deck-type plots (pie + win-rate bar) ---
+
+    if deck_summary:
+        # plots.plot_deck_type_* expects "type" instead of "deck_type"
+        deck_types_for_plots: List[Dict[str, Any]] = [
+            {
+                "type": row.get("deck_type", "Unknown"),
+                "games": int(row.get("games", 0)),
+                "wins": int(row.get("wins", 0)),
+                "losses": int(row.get("losses", 0)),
+                "draws": int(row.get("draws", 0)),
+                "win_rate": float(row.get("win_rate", 0.0)),
+            }
+            for row in deck_summary
+        ]
+
+        plots["meta_deck_types_pie"] = plot_deck_type_pie(
+            deck_types_for_plots,
+            title="Meta Deck Types (by Games Played)",
+            filename="meta_deck_types",
+        )
+
+        plots["meta_deck_types_winrate_bar"] = plot_deck_type_bar(
+            deck_types_for_plots,
+            title="Meta Deck Types Win Rate (All Participants)",
+            filename="meta_deck_types_winrate",
+            metric="win_rate",
+        )
+
+        notes.append(
+            f"generate_meta_plots: created meta_deck_types_pie and "
+            f"meta_deck_types_winrate_bar for {len(deck_types_for_plots)} deck types."
+        )
+    else:
+        notes.append(
+            "generate_meta_plots: no meta_deck_summary in meta_llm_tables; "
+            "skipping deck-type pie/bar plots."
+        )
+
+    # --- 2) Per-deck matchup graphs: each deck vs other types (W/R) ---
+
+    if matchup_summary:
+        per_deck_paths = _plot_meta_matchups_by_deck(
+            matchup_summary,
+            filename_prefix="meta_matchups",
+        )
+        plots["meta_matchups_by_deck"] = per_deck_paths
+
+        notes.append(
+            "generate_meta_plots: generated per-deck matchup charts for "
+            f"{len(per_deck_paths)} deck types."
+        )
+    else:
+        notes.append(
+            "generate_meta_plots: no meta_matchup_summary in meta_llm_tables; "
+            "skipping per-deck matchup plots."
+        )
+
+    # Save plots back into analytics
+    analytics["plots"] = plots
+
+    return {
+        "meta_analytics": analytics,
         "notes": notes,
     }
 
@@ -361,7 +724,7 @@ def build_meta_graph():
 
         fetch_top_players
             ↓
-        sample_initial_50
+        sample_initial
             ↓
         fetch_meta_battles
             ↓
@@ -373,31 +736,41 @@ def build_meta_graph():
     """
     graph = StateGraph(MetaState)
 
-    # Nodes
+    #intial node
     graph.add_node("fetch_top_players", fetch_top_players_node)
-    graph.add_node("sample_initial_50", sample_initial_50_node)
+
+    graph.add_node("sample_initial", sample_initial_node)
     graph.add_node("fetch_meta_battles", fetch_meta_battles_node)
     graph.add_node("compute_meta_analytics", compute_meta_analytics_node)
     graph.add_node("check_enough_battles", check_enough_battles_node)
     graph.add_node("sample_more_5", sample_more_5_node)
 
-    # Entry
+    # post-loop nodes:
+    graph.add_node("standardize_meta_table", standardize_meta_table_node)
+    graph.add_node("build_meta_llm_tables", build_meta_llm_tables_node)
+    graph.add_node("generate_meta_plots", generate_meta_plots_node)
+
+    #intal starting
     graph.set_entry_point("fetch_top_players")
 
-    # Linear edges
-    graph.add_edge("fetch_top_players", "sample_initial_50")
-    graph.add_edge("sample_initial_50", "fetch_meta_battles")
+    # Loop
+    graph.add_edge("fetch_top_players", "sample_initial")
+    graph.add_edge("sample_initial", "fetch_meta_battles")
     graph.add_edge("sample_more_5", "fetch_meta_battles")
     graph.add_edge("fetch_meta_battles", "compute_meta_analytics")
     graph.add_edge("compute_meta_analytics", "check_enough_battles")
 
-    # Conditional routing after checking battle count + deck types
+    # After we stop looping:
+    graph.add_edge("standardize_meta_table", "build_meta_llm_tables")
+    graph.add_edge("build_meta_llm_tables", "generate_meta_plots")
+    graph.add_edge("generate_meta_plots", END)
+
     graph.add_conditional_edges(
         "check_enough_battles",
         route_after_check_enough,
         {
-            "enough": END,           # we have >= 500 battles AND each required type >= 70
-            "stop": END,             # no more players / too many loops
+            "enough": "standardize_meta_table",
+            "stop": "standardize_meta_table",
             "need_more": "sample_more_5",
         },
     )

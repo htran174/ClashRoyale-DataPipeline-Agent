@@ -67,14 +67,6 @@ def _precompute_deck_values(cards: List[str]) -> Dict[str, Any]:
     # bait_pieces – primarily from metadata flag
     bait_pieces = sum(1 for m in metas if m.get("is_bait_piece"))
 
-    # Goblin Barrel is a bait card even if metadata flag is False
-    has_goblin_barrel = "Goblin Barrel" in names_set
-    if has_goblin_barrel:
-        # B1 rule needs: barrel + at least one other bait piece
-        has_bait_core = bait_pieces >= 1
-    else:
-        has_bait_core = False
-
     bridge_spam_count = sum(1 for m in metas if m.get("is_bridge_spam_piece"))
     big_tank_count = sum(1 for m in metas if m.get("is_big_tank"))
 
@@ -84,7 +76,6 @@ def _precompute_deck_values(cards: List[str]) -> Dict[str, Any]:
         "has_xbow": has_xbow,
         "has_mortar": has_mortar,
         "bait_pieces": bait_pieces,
-        "has_bait_core": has_bait_core,
         "bridge_spam_count": bridge_spam_count,
         "big_tank_count": big_tank_count,
     }
@@ -112,7 +103,6 @@ def classify_deck(cards: List[str]) -> str:
     has_xbow = v["has_xbow"]
     has_mortar = v["has_mortar"]
     bait_pieces = v["bait_pieces"]
-    has_bait_core = v["has_bait_core"]
     bridge_spam_count = v["bridge_spam_count"]
     big_tank_count = v["big_tank_count"]
 
@@ -131,7 +121,7 @@ def classify_deck(cards: List[str]) -> str:
     # 2️⃣ BAIT RULES (PACKAGE-BASED)
     # =========================================
     # B1: Goblin Barrel + at least one other bait unit
-    if has_bait_core and bait_pieces >= 1:
+    if bait_pieces >= 3:
         return ARCHETYPE_BAIT
 
     # =========================================
