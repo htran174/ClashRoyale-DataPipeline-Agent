@@ -1,6 +1,7 @@
 import os
 from typing import Any, Dict, List
-
+import matplotlib
+matplotlib.use("Agg") 
 import matplotlib.pyplot as plt
 
 PLOTS_DIR = "plots"

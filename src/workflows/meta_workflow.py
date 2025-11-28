@@ -6,6 +6,11 @@ import random
 from typing import Any, Dict, List, Set
 from typing import TypedDict
 
+import matplotlib
+matplotlib.use("Agg") 
+import os
+import matplotlib.pyplot as plt
+
 from langgraph.graph import StateGraph, END
 
 from src.api.players import fetch_top_players
@@ -80,11 +85,6 @@ class MetaState(TypedDict, total=False):
 
     # Compact, LLM-friendly summary tables
     meta_llm_tables: Dict[str, Any]
-
-
-
-import os
-import matplotlib.pyplot as plt
 
 # ---------------------------------------------------------------------------
 # Helper

@@ -4,7 +4,9 @@
   ],
   "graphs": {
     "user_analytics": "./src/workflows/user_workflow.py:build_user_analytics_graph",
-    "meta_analytics": "./src/workflows/meta_workflow.py:build_meta_graph"
+    "meta_analytics": "./src/workflows/meta_workflow.py:build_meta_graph",
+    "qna-small": "./src/workflows/phase2_qna_workflow.py:build_qna_graph",
+    "qna-full": "./src/workflows/phase2_qna_workflow.py:build_coach_graph"
   },
   "env": "./.env"
 }

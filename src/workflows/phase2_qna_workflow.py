@@ -1,16 +1,15 @@
 import json
 from typing import TypedDict, Dict, Any, List
 from langgraph.graph import StateGraph, START, END
+from langgraph.types import interrupt
 from openai import OpenAI
 from src.api.llm_client import chat_completion 
-from .phase2_constants import (
-    CATEGORIES,
-    DATANEEDS,
-    DEFAULT_NEEDS,
-    CLASSIFIER_SYSTEM_PROMPT,
-    CLASSIFIER_MODEL,
-    EXPERT_MODEL,
-)
+
+from src.workflows.phase2_constants import CATEGORIES, DATANEEDS, DEFAULT_NEEDS, CLASSIFIER_SYSTEM_PROMPT, CLASSIFIER_MODEL, EXPERT_MODEL
+
+from src.workflows.meta_workflow import build_meta_graph
+from src.workflows.user_workflow import build_user_analytics_graph
+
 #---------Class--------------
 class QnAState(TypedDict, total=False):
     # Inputs
@@ -325,7 +324,6 @@ def enough_data_node(state: QnAState) -> QnAState:
     )
     return state
 
-
 def expert_answer_llm_node(state: QnAState) -> QnAState:
     """
     Expensive expert LLM call (gpt-4.1-mini).
@@ -470,8 +468,6 @@ def route_by_category(state: QnAState) -> str:
     return "prep_other_context"
 
 
-
-
 def build_qna_graph():
     """
     Build the Phase 2 Q&A coach graph.
@@ -529,3 +525,137 @@ def build_qna_graph():
 
     app = graph.compile()
     return app
+
+from pydantic import BaseModel
+
+#--------------------adding phase 0 + phase 1 workflow ---------------------------
+class CoachState(TypedDict, total=False):
+    # human inputs
+    player_tag: str
+    question: str
+
+    # phase 0 outputs
+    meta_analytics: Dict[str, Any]
+    meta_llm_tables: Dict[str, Any]
+    meta_table: Any  # whatever type your meta_table is
+
+    # phase 1 outputs
+    user_analytics: Dict[str, Any]
+    user_llm_tables: Dict[str, Any]
+
+    # phase 2 outputs
+    answer: str
+    notes: List[str]
+
+_meta_graph = build_meta_graph()
+_user_graph = build_user_analytics_graph()
+_qna_graph = build_qna_graph() 
+
+def ensure_meta(state: CoachState) -> CoachState:
+    # If we already have meta, don't recompute
+    if "meta_analytics" in state and "meta_llm_tables" in state:
+        return state
+
+    # Mimic your notebook: meta_graph.invoke({}, config={"recursion_limit": 80})
+    meta_state = _meta_graph.invoke({}, config={"recursion_limit": 80})
+
+    return {
+        **state,
+        "meta_analytics": meta_state.get("meta_analytics", {}),
+        "meta_llm_tables": meta_state.get("meta_llm_tables", {}),
+        "meta_table": meta_state.get("meta_table", []),
+    }
+
+def ask_for_tag(state: CoachState) -> CoachState:
+    # Only ask once per thread
+    if "player_tag" in state:
+        return state
+
+    tag = interrupt("Please enter your Clash Royale player tag (without #):")
+    # When you resume in Studio, `tag` will be whatever you typed
+    return {**state, "player_tag": tag}
+
+def ensure_user(state: CoachState) -> CoachState:
+    # If we've already built user analytics for this tag, reuse them
+    if "user_analytics" in state and "user_llm_tables" in state:
+        return state
+
+    player_tag = state["player_tag"]
+    user_state = _user_graph.invoke({"player_tag": player_tag})
+
+    return {
+        **state,
+        "user_analytics": user_state.get("user_analytics", {}),
+        "user_llm_tables": user_state.get("user_llm_tables", {}),
+        # (optional) keep tag in sync
+        "player_tag": user_state.get("player_tag", player_tag),
+    }
+
+def ask_for_question(state: CoachState) -> CoachState:
+    question = interrupt("What would you like to ask about your Clash performance?")
+    return {**state, "question": question}
+
+def ensure_user(state: CoachState) -> CoachState:
+    # If we've already built user analytics for this tag, reuse them
+    if "user_analytics" in state and "user_llm_tables" in state:
+        return state
+
+    player_tag = state["player_tag"]
+    user_state = _user_graph.invoke({"player_tag": player_tag})
+
+    return {
+        **state,
+        "user_analytics": user_state.get("user_analytics", {}),
+        "user_llm_tables": user_state.get("user_llm_tables", {}),
+        # (optional) keep tag in sync
+        "player_tag": user_state.get("player_tag", player_tag),
+    }
+
+def ask_for_question(state: CoachState) -> CoachState:
+    question = interrupt("What would you like to ask about your Clash performance?")
+    return {**state, "question": question}
+
+def qa_answer(state: CoachState) -> CoachState:
+    qna_input = {
+        "user_tag": state.get("player_tag"),
+        "question": state.get("question"),
+        "user_analytics": state.get("user_analytics", {}),
+        "user_llm_tables": state.get("user_llm_tables", {}),
+        "meta_analytics": state.get("meta_analytics", {}),
+        "meta_llm_tables": state.get("meta_llm_tables", {}),
+        "meta_table": state.get("meta_table", []),
+        "notes": state.get("notes", []),
+    }
+
+    qna_state = _qna_graph.invoke(qna_input)
+
+    # Adjust these keys if your phase2 graph returns something slightly different
+    answer = qna_state.get("answer", "(No 'answer' key returned)")
+    notes = qna_state.get("notes", [])
+
+    return {
+        **state,
+        "answer": answer,
+        "notes": notes,
+    }
+
+def build_coach_graph():
+    graph = StateGraph(CoachState)
+
+    graph.add_node("ensure_meta", ensure_meta)
+    graph.add_node("ask_for_tag", ask_for_tag)
+    graph.add_node("ensure_user", ensure_user)
+    graph.add_node("ask_for_question", ask_for_question)
+    graph.add_node("qa_answer", qa_answer)
+
+    graph.add_edge(START, "ensure_meta")
+    graph.add_edge("ensure_meta", "ask_for_tag")
+    graph.add_edge("ask_for_tag", "ensure_user")
+    graph.add_edge("ensure_user", "ask_for_question")
+    graph.add_edge("ask_for_question", "qa_answer")
+
+    # Loop: after answering, go back to asking a new question
+    graph.add_edge("qa_answer", "ask_for_question")
+
+    # (We never hit END unless you later add a "stop" condition node)
+    return graph.compile()
