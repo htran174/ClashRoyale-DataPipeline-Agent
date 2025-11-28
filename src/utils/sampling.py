@@ -12,7 +12,7 @@ def sample_players(
 
     Args:
         players: List of player dicts (expected length >= sample_size).
-        sample_size: Number of players to sample (default: 50).
+        sample_size: Number of players to sample (default: 250).
         seed: Optional random seed for reproducibility.
 
     Returns:

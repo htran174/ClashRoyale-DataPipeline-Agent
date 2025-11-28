@@ -9,7 +9,7 @@ from . import deck_type as deck_type_mod
 
 def _classify_deck(cards: List[str]) -> str:
     """
-    Same wrapper pattern as in meta_analytics.py so we don't depend
+    Same wrapper pattern as in meta_analytics.py so don't depend
     on the exact function name in deck_type.py.
     """
     if hasattr(deck_type_mod, "classify_deck_from_cards"):
@@ -20,7 +20,7 @@ def _classify_deck(cards: List[str]) -> str:
 
 
 def _flip_result(res: str) -> str:
-    """Flip a result when we swap POV: win<->loss, draw stays draw."""
+    """Flip a result when swap POV: win<->loss, draw stays draw."""
     if res == "win":
         return "loss"
     if res == "loss":
@@ -34,7 +34,7 @@ def build_standardized_meta_table(
     """
     Build a unified meta table with one row per participant.
 
-    Input: same normalized battles you pass into compute_meta_analytics, with at least:
+    Input: same normalized battles pass into compute_meta_analytics, with at least:
       - 'result'    : 'win' | 'loss' | 'draw' (from *my* POV)
       - 'my_cards'  : List[str] (top player's deck)
       - 'opp_cards' : List[str] (opponent's deck)
@@ -48,7 +48,7 @@ def build_standardized_meta_table(
         "is_win": bool,
       }
 
-    This is the canonical table we use for meta plots (no “my vs opp” labels,
+    This is the canonical table use for meta plots (no “my vs opp” labels,
     just “participants in the meta”).
     """
     rows: List[Dict[str, Any]] = []

@@ -44,134 +44,74 @@ def build_user_summary_table(summary: dict):
 
 def build_user_deck_summary(user_analytics):
     """
-    Build a per-deck-type summary for the user.
+    Build a per-deck-type summary for the user from user_analytics["my_deck_types"].
 
-    Handles a few possible shapes:
-
-    - my_deck_types as a dict:
-        {deck_type -> games_played}
-    - my_deck_types as a list of rows:
-        [{"deck_type": "...", "games": ...}, ...]
-    - and falls back to best_decks if my_deck_types is missing/empty.
+    We normalize this to a list of rows with a stable "deck_type" field.
     """
-    # ----- 1) Normalise my_deck_types into {deck_type: games} -----
-    raw = user_analytics.get("my_deck_types") or {}
-    deck_counts: Dict[str, int] = {}
+    table: List[dict] = []
 
-    if isinstance(raw, dict):
-        # Already in the desired shape
-        deck_counts = raw
-    elif isinstance(raw, list):
-        # Build counts from list of dicts
-        for row in raw:
-            if not isinstance(row, dict):
-                continue
-            deck_type = (
-                row.get("deck_type")
-                or row.get("my_deck_type")
-                or row.get("deck_type_name")
-            )
-            if not deck_type:
-                continue
+    raw = user_analytics.get("my_deck_types") or []
+    if not isinstance(raw, list):
+        return table
 
-            # Try a few common keys for "games"
-            games_val = (
-                row.get("games")
-                or row.get("games_played")
-                or row.get("count")
-                or 0
-            )
-            try:
-                games_val = int(games_val)
-            except (TypeError, ValueError):
-                games_val = 0
-
-            deck_counts[deck_type] = deck_counts.get(deck_type, 0) + games_val
-
-    # If we still don't have anything, fall back to best_decks' games
-    best_decks_raw = user_analytics.get("best_decks", []) or []
-    if not deck_counts and isinstance(best_decks_raw, list):
-        for row in best_decks_raw:
-            if not isinstance(row, dict):
-                continue
-            deck_type = row.get("deck_type")
-            if not deck_type:
-                continue
-            games_val = (
-                row.get("games")
-                or row.get("games_played")
-                or row.get("count")
-                or 0
-            )
-            try:
-                games_val = int(games_val)
-            except (TypeError, ValueError):
-                games_val = 0
-            deck_counts[deck_type] = deck_counts.get(deck_type, 0) + games_val
-
-    # ----- 2) Index best_decks by deck_type for extra stats -----
-    best_decks: Dict[str, dict] = {}
-    for d in best_decks_raw:
-        if not isinstance(d, dict):
+    for row in raw:
+        if not isinstance(row, dict):
             continue
-        deck_type = d.get("deck_type")
+
+        deck_type = (
+            row.get("deck_type")
+            or row.get("type")        
+            or row.get("my_deck_type")
+        )
         if not deck_type:
             continue
-        best_decks[deck_type] = d
 
-    # ----- 3) Build final table -----
-    table = []
-    for deck_type, games in deck_counts.items():
-        row = best_decks.get(deck_type) or {}
-
-        wins = row.get("wins")
-        losses = row.get("losses")
-        win_rate = row.get("win_rate")
-
-        table.append(
-            {
-                "deck_type": deck_type,
-                "games": games,
-                "wins": wins,
-                "losses": losses,
-                "win_rate": win_rate,
-            }
-        )
+        new_row = dict(row)  # shallow copy
+        new_row["deck_type"] = deck_type
+        table.append(new_row)
 
     return table
 
 
+
 def build_user_matchup_summary(user_analytics):
     """
-    Flatten easy/hard matchup lists into one table of (my_type vs opp_type).
+    Build a deck-type vs deck-type matchup table for the LLM.
+
+    Source: user_analytics["deck_type_matchups"], which has rows like:
+
+        {
+          "my_deck_type": "Beatdown",
+          "opp_deck_type": "Bridge Spam",
+          "games": 6,
+          "wins": 1,
+          "losses": 5,
+          "draws": 0,
+          "win_rate": 0.1666...
+        }
+
+    We forward these rows as-is so the expert LLM can answer questions like:
+      - "What deck types do I struggle vs?"
+      - "Which archetypes am I best into?"
     """
+    raw = user_analytics.get("deck_type_matchups") or []
+    if not isinstance(raw, list):
+        return []
+
     table: List[dict] = []
 
-    for row in user_analytics.get("easy_matchups", []) or []:
-        table.append(
-            {
-                "attacker_type": row.get("my_deck_type", "Unknown"),
-                "defender_type": row.get("opp_deck_type", "Unknown"),
-                "games": row.get("games", 0),
-                "wins": row.get("wins", 0),
-                "losses": row.get("losses", 0),
-                "win_rate": row.get("win_rate", 0.0),
-                "matchup_category": "easy",
-            }
-        )
+    for row in raw:
+        if not isinstance(row, dict):
+            continue
 
-    for row in user_analytics.get("tough_matchups", []) or []:
-        table.append(
-            {
-                "attacker_type": row.get("my_deck_type", "Unknown"),
-                "defender_type": row.get("opp_deck_type", "Unknown"),
-                "games": row.get("games", 0),
-                "wins": row.get("wins", 0),
-                "losses": row.get("losses", 0),
-                "win_rate": row.get("win_rate", 0.0),
-                "matchup_category": "tough",
-            }
-        )
+        my_type = row.get("my_deck_type")
+        opp_type = row.get("opp_deck_type")
+        if not my_type or not opp_type:
+            continue
+
+        # shallow copy; no difficulty labels
+        out_row = dict(row)
+        table.append(out_row)
 
     return table
 
@@ -179,75 +119,90 @@ def build_user_matchup_summary(user_analytics):
 def build_user_card_summary(user_analytics):
     """
     Merge best_cards + worst_cards into one per-card summary.
+
+    We keep the original stats and add:
+      - card_name (alias of card)
+      - role: "best" / "worst"
+      - source: "best_cards" / "worst_cards"
     """
-    best = {c.get("card_name"): c for c in (user_analytics.get("best_cards") or []) if c.get("card_name")}
-    worst = {c.get("card_name"): c for c in (user_analytics.get("worst_cards") or []) if c.get("card_name")}
+    table: List[dict] = []
 
-    all_cards = set(best.keys()) | set(worst.keys())
+    best_cards = user_analytics.get("best_cards") or []
+    worst_cards = user_analytics.get("worst_cards") or []
 
-    summary_games = (user_analytics.get("summary") or {}).get("games_played", 1) or 1
+    # Best cards
+    for row in best_cards:
+        if not isinstance(row, dict):
+            continue
+        card_name = row.get("card") or row.get("card_name")
+        if not card_name:
+            continue
 
-    table = []
-    for card in all_cards:
-        best_row = best.get(card) or {}
-        worst_row = worst.get(card) or {}
+        new_row = dict(row)
+        new_row["card_name"] = card_name
+        new_row["role"] = "best"
+        new_row["source"] = "best_cards"
+        table.append(new_row)
 
-        games = (best_row.get("games", 0) or 0) + (worst_row.get("games", 0) or 0)
-        wins = best_row.get("wins", 0) or 0
-        losses = worst_row.get("losses", 0) or 0
+    # Worst cards
+    for row in worst_cards:
+        if not isinstance(row, dict):
+            continue
+        card_name = row.get("card") or row.get("card_name")
+        if not card_name:
+            continue
 
-        win_rate = wins / games if games > 0 else 0.0
-        usage_rate = games / summary_games if summary_games > 0 else 0.0
-
-        table.append(
-            {
-                "card_name": card,
-                "games": games,
-                "wins": wins,
-                "losses": losses,
-                "win_rate": win_rate,
-                "usage_rate": usage_rate,
-            }
-        )
+        new_row = dict(row)
+        new_row["card_name"] = card_name
+        new_row["role"] = "worst"
+        new_row["source"] = "worst_cards"
+        table.append(new_row)
 
     return table
-
 
 def build_opponent_card_summary(user_analytics):
     """
-    Mirror of build_user_card_summary, but from the opponent perspective:
-    - tough_opp_cards: cards you struggle against
-    - easy_opp_cards: cards you farm
+    Merge tough_opp_cards + easy_opp_cards into one per-opponent-card summary.
+    We keep the stats and add:
+      - card_name (alias of card)
+      - role: "tough" / "easy"
+      - source: "tough_opp_cards" / "easy_opp_cards"
     """
-    tough = {c.get("card_name"): c for c in (user_analytics.get("tough_opp_cards") or []) if c.get("card_name")}
-    easy = {c.get("card_name"): c for c in (user_analytics.get("easy_opp_cards") or []) if c.get("card_name")}
+    table: List[dict] = []
 
-    all_cards = set(tough.keys()) | set(easy.keys())
+    tough_opp = user_analytics.get("tough_opp_cards") or []
+    easy_opp = user_analytics.get("easy_opp_cards") or []
 
-    table = []
-    for card in all_cards:
-        tough_row = tough.get(card) or {}
-        easy_row = easy.get(card) or {}
+    # Cards you struggle against
+    for row in tough_opp:
+        if not isinstance(row, dict):
+            continue
+        card_name = row.get("card") or row.get("card_name")
+        if not card_name:
+            continue
 
-        games = (tough_row.get("games", 0) or 0) + (easy_row.get("games", 0) or 0)
-        wins_against = easy_row.get("wins", 0) or 0
-        losses_against = tough_row.get("losses", 0) or 0
+        new_row = dict(row)
+        new_row["card_name"] = card_name
+        new_row["role"] = "tough"
+        new_row["source"] = "tough_opp_cards"
+        table.append(new_row)
 
-        win_rate = wins_against / games if games > 0 else 0.0
-        threat = losses_against / games if games > 0 else 0.0
+    # Cards you handle well
+    for row in easy_opp:
+        if not isinstance(row, dict):
+            continue
+        card_name = row.get("card") or row.get("card_name")
+        if not card_name:
+            continue
 
-        table.append(
-            {
-                "card_name": card,
-                "games": games,
-                "wins_against": wins_against,
-                "losses_against": losses_against,
-                "win_rate": win_rate,
-                "threat": threat,
-            }
-        )
+        new_row = dict(row)
+        new_row["card_name"] = card_name
+        new_row["role"] = "easy"
+        new_row["source"] = "easy_opp_cards"
+        table.append(new_row)
 
     return table
+
 
 
 # ---------- Node: fetch_battlelog ----------

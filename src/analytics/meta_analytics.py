@@ -6,7 +6,7 @@ import pandas as pd
 
 from . import deck_type as deck_type_mod
 
-# Keep this in sync with your archetypes in deck_type.py
+# Sync with archetypes in deck_type.py
 DECK_TYPES: List[str] = ["Bait", "Beatdown", "Bridge Spam", "Cycle", "Hybrid", "Siege"]
 
 

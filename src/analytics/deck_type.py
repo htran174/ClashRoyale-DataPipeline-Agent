@@ -1,3 +1,4 @@
+#/src/analytics/deck_type.py
 import json
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -83,7 +84,7 @@ def _precompute_deck_values(cards: List[str]) -> Dict[str, Any]:
 
 def classify_deck(cards: List[str]) -> str:
     """
-    Classify a deck into one of your archetypes.
+    Classify a deck into one of archetypes.
 
     Priority order (first match wins):
       1) Siege
@@ -107,7 +108,7 @@ def classify_deck(cards: List[str]) -> str:
     big_tank_count = v["big_tank_count"]
 
     # =========================================
-    # 1️⃣ SIEGE RULES
+    # SIEGE RULES
     # =========================================
     # S1: X-Bow hard rule
     if has_xbow:
@@ -118,35 +119,35 @@ def classify_deck(cards: List[str]) -> str:
         return ARCHETYPE_SIEGE
 
     # =========================================
-    # 2️⃣ BAIT RULES (PACKAGE-BASED)
+    # BAIT RULES (PACKAGE-BASED)
     # =========================================
-    # B1: Goblin Barrel + at least one other bait unit
+    # B1: At least 3 Bait pieces
     if bait_pieces >= 3:
         return ARCHETYPE_BAIT
 
     # =========================================
-    # 3️⃣ CYCLE RULES (4-card cycle cost)
+    # CYCLE RULES (4-card cycle cost)
     # =========================================
     # CY1: If four_card_cycle_cost <= 9 -> Cycle
     if four_cycle <= 9:
         return ARCHETYPE_CYCLE
 
     # =========================================
-    # 4️⃣ BRIDGE SPAM RULES (key piece count)
+    # BRIDGE SPAM RULES (key piece count)
     # =========================================
     # BS1: If bridge_spam_count >= 2 -> Bridge Spam
     if bridge_spam_count >= 2:
         return ARCHETYPE_BRIDGE_SPAM
 
     # =========================================
-    # 5️⃣ BEATDOWN RULES (tank + heavy avg)
+    # BEATDOWN RULES (tank + heavy avg)
     # =========================================
     # BD1: If big_tank_count >= 1 AND avg_elixir >= 3.5 -> Beatdown
     if big_tank_count >= 1 and avg_elixir >= 3.5:
         return ARCHETYPE_BEATDOWN
 
     # =========================================
-    # 6️⃣ HYBRID (fallback)
+    # HYBRID (fallback)
     # =========================================
     return ARCHETYPE_HYBRID
 
@@ -213,7 +214,7 @@ def summarize_deck_types(
         }
     """
 
-    # Aggregate stats separately for you and for opponents
+    # Aggregate stats separately
     my_stats: Dict[str, Dict[str, int]] = {}
     opp_stats: Dict[str, Dict[str, int]] = {}
 
@@ -227,7 +228,7 @@ def summarize_deck_types(
         my_cards = battle.get("my_cards") or []
         opp_cards = battle.get("opp_cards") or []
 
-        # We expect 8 cards; if not, just skip this battle for deck-type stats
+        # Expect 8 cards; if not, just skip this battle for deck-type stats
         try:
             if len(my_cards) == 8:
                 my_type = classify_deck(my_cards)
@@ -261,9 +262,9 @@ def summarize_deck_types(
             bucket = _ensure_bucket(opp_stats, opp_type)
             bucket["games"] += 1
             if result == "win":
-                bucket["losses"] += 1   # opponent lost when you won
+                bucket["losses"] += 1  
             elif result == "loss":
-                bucket["wins"] += 1     # opponent won when you lost
+                bucket["wins"] += 1     
             else:
                 bucket["draws"] += 1
 

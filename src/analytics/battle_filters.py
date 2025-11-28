@@ -50,7 +50,7 @@ def _compute_result(team_crowns: int, opp_crowns: int) -> str:
 
 def normalize_battle(battle: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Normalize a raw battle dict into the minimal structure we need.
+    Normalize a raw battle dict into the minimal structure.
 
     Output schema (per spec):
         {

@@ -19,10 +19,6 @@ from src.analytics.plots import (
     PLOTS_DIR,
     _ensure_plots_dir,
 )
-from src.analytics.meta_plots import (
-    attach_meta_plots_to_analytics,          # if you still use this
-    plot_meta_matchups_by_deck,              # 👈 NEW
-)
 
 from src.analytics.meta_llm_tables import (
     build_meta_deck_summary,

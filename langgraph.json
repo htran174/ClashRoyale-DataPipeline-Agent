@@ -1,0 +1,10 @@
+{
+  "dependencies": [
+    "./src"
+  ],
+  "graphs": {
+    "user_analytics": "./src/workflows/user_workflow.py:build_user_analytics_graph",
+    "meta_analytics": "./src/workflows/meta_workflow.py:build_meta_graph"
+  },
+  "env": "./.env"
+}
