@@ -15,10 +15,10 @@ The agent:
 
 ---
 # Table of Contents
-- [Overview -High-Level Architecture](#high-level-architecture)
-- [Phase 0 — Meta Analytics](#phase-0--meta-analytics)
-- [Phase 1 — User Analytics](#phase-1--user-analytics)
-- [Phase 2 — Q&A Coaching Workflow](#phase-2--qa-coaching-workflow)
+- [Overview -- High-Level Architecture](#high-level-architecture)
+- [Phase 0 —- Meta Analytics](#phase-0--meta-analytics)
+- [Phase 1 —- User Analytics](#phase-1--user-analytics)
+- [Phase 2 —- Q&A Coaching Workflow](#phase-2--qa-coaching-workflow)
 - [Combined Coach Workflow](#combined-coach-workflow)
 - [Classification](#data-cleaning--deck-classification)
 - [Quickstart Guide](#quickstart-guide)
@@ -282,18 +282,25 @@ Flow:
 
 ---
 
-# Data Cleaning & Deck Classification
+## Data Cleaning & Deck Classification
 
-Before analytics, the system maps every deck into **six archetypes** using a simple ruleset:
+Raw Clash Royale battlelogs contain **102 cards** and thousands of possible 8-card combinations.  
+To make analytics meaningful, every deck is standardized into **six archetypes**:
 
-- **Siege**  
-- **Bait**  
-- **Cycle**  
-- **Bridge Spam**  
-- **Beatdown**  
-- **Hybrid**
+| Archetype | Description |
+|----------|-------------|
+| **Siege** | Win condition placed at long distance (X-Bow / Mortar). |
+| **Bait** | Forces inefficient responses through swarms |
+| **Cycle** | Low-elixir decks focused on fast rotations. |
+| **Bridge Spam** | High-pressure units deployed at the bridge to punish mistakes. |
+| **Beatdown** | Slow, tank-based pushes built around elixir advantages and one big push. |
+| **Hybrid** | Mixed strategies that don’t fit cleanly into one category. |
 
-This standardization keeps Phase 0 meta analytics consistent with Phase 1 user analytics, ensuring cleaner matchup and win-rate calculations.
+This lightweight classification ensures that:
+
+- Phase 0 (meta analysis) and Phase 1 (user analysis) **use the same archetype system**
+- Matchup tables remain **consistent & interpretable**  
+- LLM coaching in Phase 2 can reference decks in natural language
 
 ---
 ## Quickstart Guide
