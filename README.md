@@ -296,4 +296,70 @@ Before analytics, the system maps every deck into **six archetypes** using a sim
 This standardization keeps Phase 0 meta analytics consistent with Phase 1 user analytics, ensuring cleaner matchup and win-rate calculations.
 
 ---
-# Quickstart Quide
+## Quickstart Guide
+
+This project is designed to be tested efficiently in **two ways**:
+
+1. Through **LangGraph Studio** using `langgraph dev`  
+2. Through a **Jupyter / Colab notebook** `clash_agent_demo.ipynb`
+
+---
+
+### 1. Set up Python environment
+
+From the project root:
+
+```bash
+python -m venv venv
+source venv/bin/activate  # macOS / Linux
+# venv\Scripts\activate   # Windows
+
+pip install -r requirements.txt
+```
+### 2. Configure API keys
+This project includes a `.env.example` template.
+
+To set up your environment variables, choose one of the following options:
+
+#### Option A — Copy the example file
+Rename the example file to `.env`:
+
+```bash
+cp .env.example .env
+```
+Then open .env and fill in your keys
+
+#### Option B — Create a new `.env` manually
+If you prefer, create a new .env file from scratch and paste:
+```bash
+OPENAI_API_KEY=your_openai_key
+CR_API_KEY=your_clash_royale_dev_key
+```
+
+#### Note:
+If you don't have a openai key eye go to https://platform.openai.com to create one.
+
+If you don't have a clash royale dev key go to https://developer.clashroyale.com to create one.
+
+You can also run `testapi.py` to see if your api is working
+### 3. How to run it!
+#### Option A - Run in LangGraph Studio
+From the project root, start the dev server by opening up a terminal and paste:
+```
+langgraph dev
+```
+1. Open the Studio UI link in your browser.
+2. Select qna-full from the drop-down.
+3. Click the Submit/Run bnt to start!
+
+
+#### Option B — Run in Jupyter / Colab
+From the project root, start the dev server by opening up a terminal and paste:
+
+```
+jupyter notebook
+```
+1. Open `clash_agent_demo.ipynb`.
+2. Run the cells in order. 
+
+*note follow the comment instruction!
