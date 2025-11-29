@@ -15,7 +15,7 @@ The agent:
 
 ---
 
-## Graph
+## Diagrams
 
 - Phase 0 – Meta pipeline in LangGraph Studio  
   ![Phase 0 – Meta Graph](docs/images/phase0_meta_graph.png)
@@ -33,7 +33,7 @@ The agent:
 
 ## High-Level Architecture
 
-The project is organized into **three phases** plus a **top-level coach graph**:
+The project is organized into **three phases** plus a **top-level coach**:
 
 1. **Phase 0 – Meta Pipeline**  
    Build a reference dataset from top players:
