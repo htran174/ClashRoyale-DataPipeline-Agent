@@ -1,11 +1,17 @@
-langgraph
-langchain
-langchain-openai
-openai
+# --- Core Graph + Runtime ---
+langgraph>=0.2.38
+langgraph-cli>=0.4.7
 
-pandas
-matplotlib
-requests
-python-dotenv
+# --- OpenAI Client (new SDK) ---
+openai>=1.35.0
 
-jupyter
+# --- Data & Analytics ---
+pandas>=2.0.0
+matplotlib>=3.8.0
+
+# --- HTTP / API / Utilities ---
+requests>=2.32.0
+python-dotenv>=1.0.1
+
+# --- Notebook Support ---
+jupyter>=1.0.0
