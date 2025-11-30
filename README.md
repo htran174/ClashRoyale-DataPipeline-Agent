@@ -4,9 +4,9 @@ Built by **Hien Tran**
 
 Computer Science @ California State University, Fullerton  
 
-[LinkedIn](link) • [GitHub](link)
+[LinkedIn](https://www.linkedin.com/in/hien-tran-cs) • [GitHub](https://github.com/htran174)
 
-**Video Demo:** [Watch on LinkedIn](link)
+**Video Demo:** [Watch on LinkedIn (haven't been made yet)](link)
 
 A three-phase analytics & coaching system for **Clash Royale** built with:
 
