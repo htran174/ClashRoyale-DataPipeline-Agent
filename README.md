@@ -6,7 +6,7 @@ Computer Science @ California State University, Fullerton
 
 [LinkedIn](https://www.linkedin.com/in/hien-tran-cs) • [GitHub](https://github.com/htran174)
 
-**Video Demo:** [Watch it here!](https://drive.google.com/file/d/1C8vrcG40_Ita-Kprz5aGEaZGk-Cz0kV2/view)
+**Video Demo:** [Watch it here!](https://www.linkedin.com/posts/hien-tran-cs_ai-machinelearning-python-activity-7401678866106482688-8umn?utm_source=share&utm_medium=member_desktop&rcm=ACoAAEfc8vgBQiJ9SMJLzfJp3LgsMe_mJUIFBfM)
 
 A three-phase analytics & coaching system for **Clash Royale** built with:
 
